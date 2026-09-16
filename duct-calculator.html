@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Duct Sizing & Pressure Loss | Engineering Toolbox</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#657089;--line:#dce2ec;--accent:#1665d8;--good:#18794e;--warn:#a15c00}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{background:#101828;color:#fff;padding:22px 5vw} header h1{margin:0;font-size:24px} header p{margin:6px 0 0;color:#cbd5e1}
+main{max-width:1200px;margin:24px auto;padding:0 18px 50px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 2px 8px #1018280b}.full{grid-column:1/-1}
+h2{font-size:18px;margin:0 0 16px}.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+label{font-size:12px;color:var(--muted);font-weight:650;display:block;margin-bottom:5px}
+input,select{width:100%;padding:10px;border:1px solid #cfd6e2;border-radius:8px;background:#fff;font-size:14px}
+button{border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff}.secondary{background:#eef4ff;color:#174ea6}.danger{background:#fff0f0;color:#b42318}
+.results{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}.metric{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px}
+.metric b{display:block;font-size:20px;margin-top:4px}.metric span{font-size:11px;color:var(--muted)}
+.recommend{margin-top:12px;padding:12px;border-radius:9px;background:#edf8f2;color:var(--good);font-weight:650}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}
+.summary{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}.summary .metric{min-width:170px}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}.toolbar{display:flex;gap:8px;margin:10px 0 14px;flex-wrap:wrap}
+.small{width:85px}.med{width:110px}.status{font-size:12px;font-weight:700}
+@media(max-width:800px){.grid,.form{grid-template-columns:1fr}.full{grid-column:auto}.results{grid-template-columns:1fr 1fr}table{display:block;overflow:auto}}
+</style>
+</head>
+<body>
+<header><h1>Engineering Toolbox — Duct Sizing & Pressure Loss</h1><p>SI-unit HVAC duct sizing, straight-duct friction, fitting/equipment losses and fan pressure summary.</p></header>
+<main>
+<div class="grid">
+<section class="card">
+<h2>1. Design Inputs</h2>
+<div class="form">
+<div><label>Airflow</label><input id="q" type="number" value="13000" step="100"></div>
+<div><label>Airflow unit</label><select id="qunit"><option value="cmh">CMH</option><option value="ls">L/s</option><option value="cfm">CFM</option></select></div>
+<div><label>Duct shape</label><select id="shape"><option value="rect">Rectangular</option><option value="round">Round</option></select></div>
+<div><label>Sizing method</label><select id="method"><option value="velocity">Target velocity</option><option value="friction">Equal friction</option></select></div>
+<div><label id="targetLabel">Target velocity (m/s)</label><input id="target" type="number" value="7" step=".1"></div>
+<div><label>Max aspect ratio (W/H)</label><input id="aspect" type="number" value="2" min="1" step=".1"></div>
+<div><label>Dimension increment (mm)</label><select id="increment"><option>25</option><option selected>50</option><option>100</option></select></div>
+<div><label>Air density (kg/m³)</label><input id="rho" type="number" value="1.204" step=".001"></div>
+<div><label>Dynamic viscosity (Pa·s)</label><input id="mu" type="number" value="0.0000181" step=".0000001"></div>
+<div><label>Duct roughness ε (mm)</label><input id="rough" type="number" value="0.09" step=".01"></div>
+</div>
+<div class="toolbar"><button onclick="calculateSizing()">Calculate recommendation</button></div>
+<div id="recommend" class="recommend">Enter design conditions and calculate.</div>
+<div class="results">
+<div class="metric"><span>Area</span><b id="rArea">—</b></div>
+<div class="metric"><span>Actual velocity</span><b id="rVel">—</b></div>
+<div class="metric"><span>Hydraulic diameter</span><b id="rDh">—</b></div>
+<div class="metric"><span>Friction rate</span><b id="rFr">—</b></div>
+</div>
+<p class="note">For rectangular duct, the recommendation searches standard dimension increments and selects a compact size that satisfies the selected design target and aspect-ratio limit.</p>
+</section>
+
+<section class="card">
+<h2>2. Selected Duct Section</h2>
+<div class="form">
+<div><label>Width W (mm)</label><input id="w" type="number" value="800"></div>
+<div><label>Height H (mm)</label><input id="h" type="number" value="650"></div>
+<div><label>Round diameter (mm)</label><input id="dia" type="number" value="750"></div>
+<div><label>Straight length (m)</label><input id="length" type="number" value="10" step=".1"></div>
+</div>
+<div class="toolbar"><button class="secondary" onclick="useRecommendation()">Use recommended size</button><button onclick="recalc()">Recalculate system</button></div>
+<div class="results">
+<div class="metric"><span>Velocity pressure</span><b id="vp">—</b></div>
+<div class="metric"><span>Reynolds number</span><b id="re">—</b></div>
+<div class="metric"><span>Darcy friction factor</span><b id="ff">—</b></div>
+<div class="metric"><span>Straight duct loss</span><b id="straight">—</b></div>
+</div>
+</section>
+
+<section class="card full">
+<h2>3. Fittings & Equipment</h2>
+<div class="toolbar">
+<select id="preset" class="med">
+<option value="0.25">Smooth elbow — example K 0.25</option>
+<option value="0.75">Sharp elbow — example K 0.75</option>
+<option value="0.15">Gradual transition — example K 0.15</option>
+<option value="0.5">Damper — example K 0.50</option>
+</select>
+<button onclick="addPreset()">+ Add fitting</button>
+<button class="secondary" onclick="addEquipment()">+ Add equipment ΔP</button>
+</div>
+<table>
+<thead><tr><th>Component</th><th>Qty</th><th>K</th><th>Direct ΔP (Pa)</th><th>Calculated ΔP (Pa)</th><th></th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+<p class="note"><b>Important:</b> preset K values above are placeholders/examples for convenience, not a substitute for project-specific fitting data. Edit K using the applicable ASHRAE fitting geometry or manufacturer data. For filters, coils, HEPA housings, silencers, terminals, etc., enter the manufacturer's direct pressure drop.</p>
+</section>
+
+<section class="card full">
+<h2>4. Pressure Summary</h2>
+<div class="form" style="max-width:520px">
+<div><label>Design margin (%)</label><input id="margin" type="number" value="15"></div>
+<div><label>Additional system loss (Pa)</label><input id="extra" type="number" value="0"></div>
+</div>
+<div class="summary">
+<div class="metric"><span>Straight duct</span><b id="sStraight">—</b></div>
+<div class="metric"><span>Fittings + equipment</span><b id="sFit">—</b></div>
+<div class="metric"><span>Total calculated loss</span><b id="sTotal">—</b></div>
+<div class="metric"><span>Recommended fan pressure incl. margin</span><b id="sFan">—</b></div>
+</div>
+<p class="note">This first version calculates one serial/critical path. Do not add parallel branch losses together. A later network version can calculate airflow changes, individual paths, balancing and automatically identify the index/critical path.</p>
+</section>
+</div>
+</main>
+<script>
+let recommended=null;
+const $=id=>document.getElementById(id);
+function Qm3s(){let q=+$('q').value; let u=$('qunit').value; return u==='cmh'?q/3600:u==='ls'?q/1000:q*0.00047194745}
+function props(A,Dh){let Q=Qm3s(),v=Q/A,rho=+$('rho').value,mu=+$('mu').value,eps=+$('rough').value/1000;
+ let Re=rho*v*Dh/mu, f=Re<2300?64/Re:0.25/Math.pow(Math.log10(eps/(3.7*Dh)+5.74/Math.pow(Re,0.9)),2);
+ let vp=rho*v*v/2, fr=f/Dh*vp; return {v,Re,f,vp,fr};}
+function geom(wmm,hmm,dmm,shape=$('shape').value){
+ if(shape==='round'){let d=dmm/1000;return {A:Math.PI*d*d/4,Dh:d,label:`Ø${Math.round(dmm)} mm`,w:0,h:0,d:dmm}}
+ let w=wmm/1000,h=hmm/1000;return {A:w*h,Dh:2*w*h/(w+h),label:`${Math.round(wmm)} × ${Math.round(hmm)} mm`,w:wmm,h:hmm,d:0}}
+function calculateSizing(){
+ let Q=Qm3s(), inc=+$('increment').value, maxAR=+$('aspect').value, target=+$('target').value, method=$('method').value, shape=$('shape').value;
+ let candidates=[];
+ if(shape==='round'){
+   for(let d=100;d<=3000;d+=inc){let g=geom(0,0,d,'round'),p=props(g.A,g.Dh); candidates.push({...g,...p})}
+ } else {
+   for(let h=100;h<=2500;h+=inc) for(let w=h;w<=Math.min(3500,h*maxAR+0.1);w+=inc){let g=geom(w,h,0,'rect'),p=props(g.A,g.Dh);candidates.push({...g,...p})}
+ }
+ if(method==='velocity'){
+   let valid=candidates.filter(x=>x.v<=target);
+   recommended=(valid.length?valid:candidates).sort((a,b)=>Math.abs(a.v-target)-Math.abs(b.v-target)||a.A-b.A)[0];
+ } else {
+   let targetPam=target;
+   recommended=candidates.sort((a,b)=>Math.abs(a.fr-targetPam)-Math.abs(b.fr-targetPam)||a.A-b.A)[0];
+ }
+ $('recommend').textContent=`Recommended: ${recommended.label}`;
+ $('rArea').textContent=recommended.A.toFixed(3)+' m²'; $('rVel').textContent=recommended.v.toFixed(2)+' m/s';
+ $('rDh').textContent=(recommended.Dh*1000).toFixed(0)+' mm'; $('rFr').textContent=recommended.fr.toFixed(3)+' Pa/m';
+}
+function useRecommendation(){if(!recommended)calculateSizing(); if(recommended.d)$('dia').value=recommended.d;else{$('w').value=recommended.w;$('h').value=recommended.h} recalc()}
+function current(){let g=geom(+$('w').value,+$('h').value,+$('dia').value);return {...g,...props(g.A,g.Dh)}}
+function recalc(){
+ let p=current(), L=+$('length').value, straight=p.fr*L;
+ $('vp').textContent=p.vp.toFixed(1)+' Pa'; $('re').textContent=Math.round(p.Re).toLocaleString(); $('ff').textContent=p.f.toFixed(4); $('straight').textContent=straight.toFixed(1)+' Pa';
+ let fit=0; document.querySelectorAll('#rows tr').forEach(tr=>{let q=+tr.querySelector('.qty').value||0,k=+tr.querySelector('.k').value||0,dp=+tr.querySelector('.dp').value||0;let loss=q*(k*p.vp+dp);tr.querySelector('.calc').textContent=loss.toFixed(1);fit+=loss});
+ let total=straight+fit+(+$('extra').value||0), fan=total*(1+(+$('margin').value||0)/100);
+ $('sStraight').textContent=straight.toFixed(1)+' Pa';$('sFit').textContent=fit.toFixed(1)+' Pa';$('sTotal').textContent=total.toFixed(1)+' Pa';$('sFan').textContent=fan.toFixed(1)+' Pa';
+}
+function addRow(name,k=0,dp=0){let tr=document.createElement('tr');tr.innerHTML=`<td><input value="${name}"></td><td><input class="qty small" type="number" value="1" min="0"></td><td><input class="k small" type="number" value="${k}" step=".01"></td><td><input class="dp med" type="number" value="${dp}" step="1"></td><td class="calc">0.0</td><td><button class="danger" onclick="this.closest('tr').remove();recalc()">×</button></td>`;tr.querySelectorAll('input').forEach(x=>x.addEventListener('input',recalc));$('rows').appendChild(tr);recalc()}
+function addPreset(){let s=$('preset');addRow(s.options[s.selectedIndex].text.split(' — ')[0],+s.value,0)}
+function addEquipment(){addRow('HEPA / Filter / Coil',0,250)}
+$('method').addEventListener('change',()=>{$('targetLabel').textContent=$('method').value==='velocity'?'Target velocity (m/s)':'Target friction rate (Pa/m)';$('target').value=$('method').value==='velocity'?7:1});
+['q','qunit','shape','rho','mu','rough','w','h','dia','length','margin','extra'].forEach(id=>$(id).addEventListener('input',recalc));
+calculateSizing(); addRow('Smooth elbow (example)',0.25,0); addRow('HEPA / terminal example',0,250); useRecommendation();
+</script>
+</body></html>
