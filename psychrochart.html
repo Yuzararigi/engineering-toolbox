@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PsychroChart — Kalkulator &amp; Diagram Psikrometrik</title>
+<style>
+  :root{
+    --ink:#10233d;
+    --ink-2:#1c3a5e;
+    --paper:#fbfaf7;
+    --line:#c9cdd3;
+    --accent:#c23b4d;
+    --accent-2:#0e7c66;
+    --panel:#ffffff;
+    --panel-2:#f1f3f5;
+    --mono: "IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+    --sans: "IBM Plex Sans","Segoe UI",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  header{
+    background:var(--ink); color:#fff; padding:14px 22px;
+    display:flex; align-items:baseline; gap:10px; border-bottom:3px solid var(--accent);
+  }
+  header .brand{font-size:19px; font-weight:700; letter-spacing:.2px;}
+  header .brand span{color:#8fb8ff;}
+  header .tag{font-size:12.5px; color:#a9b8cc; font-style:italic;}
+  main{
+    display:grid; grid-template-columns: 1fr 400px; gap:16px; padding:16px; max-width:1500px; margin:0 auto;
+  }
+  @media (max-width: 980px){ main{grid-template-columns:1fr;} }
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:4px;}
+  .chart-card{padding:12px; display:flex; flex-direction:column; gap:8px;}
+  .chart-meta{font-size:11.5px; color:#5b6672; font-family:var(--mono); line-height:1.5;}
+  svg{width:100%; height:auto; background:#fff;}
+
+  .panel{display:flex; flex-direction:column; gap:12px;}
+  .section-title{
+    background:var(--ink-2); color:#fff; font-size:13px; font-weight:600;
+    padding:7px 12px; border-radius:3px 3px 0 0; letter-spacing:.2px;
+  }
+  .section-body{border:1px solid var(--line); border-top:none; border-radius:0 0 3px 3px; padding:12px; background:var(--panel);}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
+  .field label{display:block; font-size:11.5px; color:#5b6672; margin-bottom:3px; font-style:italic;}
+  .field input, .field select{
+    width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:3px; font-size:14px;
+    font-family:var(--sans); background:#fff; color:var(--ink);
+  }
+  .field .unit{font-size:11px; color:#8b95a1; margin-top:2px;}
+  .field-suffix{position:relative;}
+
+  .process-block{border:1px solid var(--accent); border-radius:3px; margin-bottom:10px; overflow:hidden;}
+  .process-head{
+    background:#f6dfe2; color:var(--accent); font-weight:700; font-size:12.5px;
+    padding:6px 10px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .process-head button{
+    background:none; border:none; color:var(--accent); font-size:15px; cursor:pointer; line-height:1; padding:0 4px;
+  }
+  .process-body{padding:10px; background:#fdf4f5;}
+
+  .btn{
+    display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:3px; border:1px solid transparent;
+    font-size:13.5px; font-weight:600; cursor:pointer;
+  }
+  .btn-add{background:var(--accent-2); color:#fff; width:100%; justify-content:center;}
+  .btn-add:hover{background:#0a6353;}
+  .btn-del{background:transparent; color:#8b1f2e;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px; font-family:var(--mono);}
+  th,td{border:1px solid var(--line); padding:5px 7px; text-align:right;}
+  th{background:var(--panel-2); color:#374151; font-weight:600; text-align:right;}
+  td:first-child, th:first-child{text-align:left; font-family:var(--sans); font-weight:600;}
+  .tbl-wrap{overflow-x:auto;}
+  .tbl-title{font-size:13px; font-weight:700; color:var(--ink-2); margin:18px 0 6px 0; padding-bottom:4px; border-bottom:2px solid var(--ink-2);}
+  .legend{font-size:11.5px; color:#5b6672; margin-top:10px; line-height:1.9; column-count:2;}
+  .legend b{color:var(--ink); font-family:var(--mono);}
+  .note{font-size:11.5px; color:#8b1f2e; background:#fdf1f2; border:1px solid #f0c4ca; padding:8px 10px; border-radius:3px; margin-top:8px;}
+  .footer-note{font-size:11px; color:#8b95a1; text-align:center; padding:14px; font-style:italic;}
+
+  .toolnav{background:#0b192b;color:#d7e1ee;padding:8px 22px;font-size:12px;border-bottom:1px solid #29405d}
+  .toolnav a{color:#9ec5ff;text-decoration:none;font-weight:700}
+  .toolnav a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="toolnav"><a href="index.html">← Engineering Toolbox</a> &nbsp;/&nbsp; Psychrometric Calculator</div>
+
+<header>
+  <div class="brand">Psychro<span>Chart</span></div>
+  <div class="tag">Kalkulator &amp; Diagram Psikrometrik untuk Rekayasa HVAC / Cleanroom</div>
+</header>
+
+<main>
+  <div class="card chart-card">
+    <svg id="chart" viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="chart-meta" id="chartMeta"></div>
+
+    <div class="tbl-title">Calculated Point Values</div>
+    <div class="tbl-wrap"><table id="pointTable"></table></div>
+
+    <div class="tbl-title">Calculated Process Changes</div>
+    <div class="tbl-wrap"><table id="processTable"></table></div>
+
+    <div class="legend">
+      <div><b>Tdb</b> = Dry Bulb Temperature</div>
+      <div><b>Twb</b> = Wet Bulb Temperature</div>
+      <div><b>Tdew</b> = Dew Point Temperature</div>
+      <div><b>W</b> = Humidity Ratio</div>
+      <div><b>H</b> = Enthalpy</div>
+      <div><b>RH</b> = Relative Humidity</div>
+      <div><b>Pv</b> = Vapor Pressure</div>
+      <div><b>&rho;</b> = Moist Air Density</div>
+      <div><b>v</b> = Specific Volume (per kg dry air)</div>
+      <div><b>Power &Delta;H</b> = beban total (sensible + laten)</div>
+      <div><b>Power &Delta;T</b> = beban sensible saja</div>
+      <div><b>&Delta;Moisture</b> = laju air ditambah/dikurangi</div>
+    </div>
+    <div class="note">Perhitungan menggunakan korelasi ASHRAE Fundamentals (2017, Ch.1) untuk tekanan saturasi uap air, dengan tekanan atmosfer disesuaikan terhadap ketinggian (barometric formula standar). Proses "Cool" otomatis dibatasi pada kurva saturasi (asumsi bypass factor = 0) jika target di bawah titik embun. Diagram di-render langsung dari persamaan, bukan gambar statis — cocokkan terhadap data desain aktual sebelum dipakai untuk keputusan rekayasa kritikal.</div>
+  </div>
+
+  <div class="panel">
+    <div>
+      <div class="section-title">Air Start Conditions</div>
+      <div class="section-body">
+        <div class="row">
+          <div class="field">
+            <label>Altitude</label>
+            <input type="number" id="altitude" value="742" step="1">
+            <div class="unit">m (dpl)</div>
+          </div>
+          <div class="field">
+            <label>Air Flow</label>
+            <div style="display:flex; gap:5px;">
+              <input type="number" id="airflow" value="10000" step="10" style="flex:1;">
+              <select id="airflowUnit" style="width:82px;" onchange="recalcAll()">
+                <option value="m3h">m&sup3;/h</option>
+                <option value="m3s">m&sup3;/s</option>
+                <option value="ls">L/s</option>
+                <option value="cfm">CFM</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <select id="in1type" onchange="onTypeChange()" style="margin-bottom:4px;">
+              <option value="tdb">Temp. (Dry Bulb)</option>
+              <option value="twb">Temp. (Wet Bulb)</option>
+              <option value="tdew">Temp. (Dew point)</option>
+              <option value="rh">Rel. Humidity</option>
+              <option value="w">Humidity ratio</option>
+              <option value="h">Enthalpy</option>
+            </select>
+            <input type="number" id="in1val" value="19" step="0.1">
+            <div class="unit" id="in1unit">&deg;C</div>
+          </div>
+          <div class="field">
+            <select id="in2type" onchange="onTypeChange()" style="margin-bottom:4px;">
+              <option value="tdb">Temp. (Dry Bulb)</option>
+              <option value="twb">Temp. (Wet Bulb)</option>
+              <option value="tdew">Temp. (Dew point)</option>
+              <option value="rh" selected>Rel. Humidity</option>
+              <option value="w">Humidity ratio</option>
+              <option value="h">Enthalpy</option>
+            </select>
+            <input type="number" id="in2val" value="40" step="0.1">
+            <div class="unit" id="in2unit">%RH</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Processes</div>
+      <div class="section-body" id="processContainer"></div>
+    </div>
+    <button class="btn btn-add" onclick="addProcess()">+ Add Process</button>
+  </div>
+</main>
+
+<div class="footer-note">Dibangun untuk perhitungan cepat proses AHU/HVAC (heating, cooling, humidifying, dehumidifying). Selalu verifikasi terhadap datasheet coil/humidifier aktual.</div>
+
+<script>
+/* ===================== PSYCHROMETRIC LIBRARY (ASHRAE Fundamentals 2017, Ch.1) ===================== */
+function satPressure(TC){
+  const T = TC + 273.15;
+  let lnP;
+  if(TC >= 0){
+    const C8=-5.8002206E+03, C9=1.3914993E+00, C10=-4.8640239E-02, C11=4.1764768E-05, C12=-1.4452093E-08, C13=6.5459673E+00;
+    lnP = C8/T + C9 + C10*T + C11*T*T + C12*T*T*T + C13*Math.log(T);
+  } else {
+    const C1=-5.6745359E+03, C2=6.3925247E+00, C3=-9.6778430E-03, C4=6.2215701E-07, C5=2.0747825E-09, C6=-9.4840240E-13, C7=4.1635019E+00;
+    lnP = C1/T + C2 + C3*T + C4*T*T + C5*T*T*T + C6*T*T*T*T + C7*Math.log(T);
+  }
+  return Math.exp(lnP); // Pa
+}
+function pressureAtAltitude(z){ return 101325*Math.pow(1-2.25577e-5*z, 5.2559); } // Pa
+function wFromRH(Tdb,RH,P){ const Pws=satPressure(Tdb); const Pv=(RH/100)*Pws; return 0.621945*Pv/(P-Pv); }
+function rhFromW(Tdb,W,P){ const Pv=P*W/(0.621945+W); const Pws=satPressure(Tdb); return Math.min(100, (Pv/Pws)*100); }
+function wsat(Tdb,P){ const Pws=satPressure(Tdb); return 0.621945*Pws/(P-Pws); }
+function enthalpy(Tdb,W){ return 1.006*Tdb + W*(2501+1.86*Tdb); }
+function dewPoint(W,P){
+  const Pv = P*W/(0.621945+W);
+  let lo=-60, hi=60;
+  for(let i=0;i<60;i++){ const mid=(lo+hi)/2; if(satPressure(mid) < Pv) lo=mid; else hi=mid; }
+  return (lo+hi)/2;
+}
+function wetBulbFromW(Tdb,W,P){
+  function f(Twb){
+    const Ws = wsat(Twb,P);
+    const Wc = ((2501-2.326*Twb)*Ws - 1.006*(Tdb-Twb)) / (2501+1.86*Tdb-4.186*Twb);
+    return Wc - W;
+  }
+  let lo=-60, hi=Tdb+5;
+  for(let i=0;i<80;i++){ const mid=(lo+hi)/2; if(f(mid) < 0) lo=mid; else hi=mid; }
+  return (lo+hi)/2;
+}
+function solveWforTwb(Tdb,targetTwb,P){
+  let lo=0, hi=Math.max(wsat(Tdb,P),1e-6);
+  for(let i=0;i<60;i++){ const mid=(lo+hi)/2; const twb=wetBulbFromW(Tdb,mid,P); if(twb < targetTwb) lo=mid; else hi=mid; }
+  return (lo+hi)/2;
+}
+function specificVolume(Tdb,W,P){ const Pkpa=P/1000; return 0.287042*(Tdb+273.15)*(1+1.6078*W)/Pkpa; } // m3/kg dry air
+
+function computePoint(Tdb,W,P){
+  W = Math.max(0,W);
+  const Twb = wetBulbFromW(Tdb,W,P);
+  const Tdew = dewPoint(W,P);
+  const H = enthalpy(Tdb,W);
+  const RH = rhFromW(Tdb,W,P);
+  const Pv = P*W/(0.621945+W);
+  const v = specificVolume(Tdb,W,P);
+  const rho = (1+W)/v;
+  return {Tdb,Twb,Tdew,W,H,RH,Pv,rho,v,P};
+}
+
+function getWforType(Tdb, type, val, P){
+  switch(type){
+    case 'rh': return wFromRH(Tdb,val,P);
+    case 'twb': return solveWforTwb(Tdb,val,P);
+    case 'tdew': { const Pws=satPressure(val); return 0.621945*Pws/(P-Pws); }
+    case 'w': return val/1000;
+    case 'h': return (val - 1.006*Tdb) / (2501 + 1.86*Tdb);
+  }
+}
+
+/* General two-parameter solver: works for any pair among {tdb,twb,tdew,rh,w,h} */
+function solveTwoParams(type1,val1,type2,val2,P){
+  if(type1==='tdb'){ const Tdb=val1; return computePoint(Tdb, getWforType(Tdb,type2,val2,P), P); }
+  if(type2==='tdb'){ const Tdb=val2; return computePoint(Tdb, getWforType(Tdb,type1,val1,P), P); }
+  function g(Tdb){ return getWforType(Tdb,type1,val1,P) - getWforType(Tdb,type2,val2,P); }
+  // Physical constraint: Tdb >= Twb >= Tdew always, so when either input is a wet-bulb or
+  // dew-point value, the dry-bulb solution cannot lie below it (avoids a spurious low root
+  // where the two curves happen to cross again below the true saturation-adjacent branch).
+  let scanLo = -60;
+  if(type1==='twb' || type1==='tdew') scanLo = Math.max(scanLo, val1 - 0.05);
+  if(type2==='twb' || type2==='tdew') scanLo = Math.max(scanLo, val2 - 0.05);
+  let prevT=scanLo, prevG=g(prevT), lo=null, hi=null;
+  for(let t=scanLo+1; t<=95; t+=1){
+    const gt=g(t);
+    if(prevG===0){ lo=prevT; hi=prevT; break; }
+    if((prevG<0&&gt>0)||(prevG>0&&gt<0)){ lo=prevT; hi=t; break; }
+    prevT=t; prevG=gt;
+  }
+  let Tdb;
+  if(lo===null){ Tdb=20; } // no sign change found in range: fall back to a nominal value
+  else if(lo===hi){ Tdb=lo; }
+  else{
+    let a=lo,b=hi, ga=g(a);
+    for(let i=0;i<60;i++){ const mid=(a+b)/2; const gm=g(mid); if((ga<0&&gm<0)||(ga>0&&gm>0)){ a=mid; ga=gm; } else { b=mid; } }
+    Tdb=(a+b)/2;
+  }
+  return computePoint(Tdb, getWforType(Tdb,type1,val1,P), P);
+}
+
+const typeMeta = {
+  tdb:{label:'Temp. (Dry Bulb)', unit:'°C'},
+  twb:{label:'Temp. (Wet Bulb)', unit:'°C'},
+  tdew:{label:'Temp. (Dew point)', unit:'°C'},
+  rh:{label:'Rel. Humidity', unit:'%RH'},
+  w:{label:'Humidity ratio', unit:'g/kg'},
+  h:{label:'Enthalpy', unit:'kJ/kg'}
+};
+function refreshTypeSelects(){
+  const t1=document.getElementById('in1type'), t2=document.getElementById('in2type');
+  const v1=t1.value, v2=t2.value;
+  [...t1.options].forEach(o=> o.disabled = (o.value===v2));
+  [...t2.options].forEach(o=> o.disabled = (o.value===v1));
+  document.getElementById('in1unit').textContent = typeMeta[v1].unit;
+  document.getElementById('in2unit').textContent = typeMeta[v2].unit;
+}
+function onTypeChange(){ refreshTypeSelects(); recalcAll(); }
+function airflowToM3h(val,unit){
+  switch(unit){ case 'm3h': return val; case 'm3s': return val*3600; case 'ls': return val*3.6; case 'cfm': return val*1.699010796; }
+}
+
+function applyProcess(p, proc){
+  const P = p.P;
+  let Tdb2, W2;
+  switch(proc.type){
+    case 'heat':
+    case 'cool': {
+      Tdb2 = (proc.target==='temp') ? proc.value : p.Tdb + proc.value;
+      W2 = p.W;
+      const Ws2 = wsat(Tdb2,P);
+      if(W2 > Ws2) W2 = Ws2; // condensation cap -> saturated at Tdb2
+      break;
+    }
+    case 'humidify_steam': {
+      Tdb2 = p.Tdb;
+      if(proc.target==='rh') W2 = wFromRH(Tdb2, proc.value, P);
+      else if(proc.target==='w') W2 = proc.value/1000;
+      else W2 = p.W + proc.value/1000; // dW
+      break;
+    }
+    case 'dehumidify': {
+      Tdb2 = p.Tdb;
+      if(proc.target==='rh') W2 = wFromRH(Tdb2, proc.value, P);
+      else W2 = proc.value/1000;
+      break;
+    }
+    case 'humidify_adiabatic': {
+      if(proc.target==='temp'){
+        Tdb2 = proc.value;
+        W2 = solveWforTwb(Tdb2, p.Twb, P);
+      } else { // target rh
+        let lo=p.Twb, hi=p.Tdb;
+        for(let i=0;i<50;i++){
+          const mid=(lo+hi)/2;
+          const wmid=solveWforTwb(mid,p.Twb,P);
+          const rhmid=rhFromW(mid,wmid,P);
+          if(rhmid < proc.value) hi=mid; else lo=mid;
+        }
+        Tdb2=(lo+hi)/2;
+        W2=solveWforTwb(Tdb2,p.Twb,P);
+      }
+      break;
+    }
+    default: Tdb2=p.Tdb; W2=p.W;
+  }
+  return computePoint(Tdb2,W2,P);
+}
+
+/* ===================== STATE ===================== */
+let processes = []; // {id,type,target,value}
+let pidCounter=0;
+
+const processConfig = {
+  heat:              {label:'Heat',                targets:[['temp','to Temp.','°C'],['dT','by ΔT','°C']]},
+  cool:              {label:'Cool',                targets:[['temp','to Temp.','°C'],['dT','by ΔT (negatif)','°C']]},
+  humidify_steam:    {label:'Humidify (Steam, isothermal)', targets:[['rh','to RH','%RH'],['w','to Humidity Ratio','g/kg'],['dW','by ΔW','g/kg']]},
+  humidify_adiabatic:{label:'Humidify (Adiabatic/Evaporative)', targets:[['rh','to RH','%RH'],['temp','to Temp.','°C']]},
+  dehumidify:        {label:'Dehumidify (isothermal)', targets:[['rh','to RH','%RH'],['w','to Humidity Ratio','g/kg']]}
+};
+
+function addProcess(){
+  processes.push({id:pidCounter++, type:'heat', target:'temp', value: 25});
+  renderProcesses();
+  recalcAll();
+}
+function removeProcess(id){
+  processes = processes.filter(p=>p.id!==id);
+  renderProcesses();
+  recalcAll();
+}
+function renderProcesses(){
+  const c = document.getElementById('processContainer');
+  if(processes.length===0){ c.innerHTML = '<div style="font-size:12.5px;color:#8b95a1;font-style:italic;">Belum ada proses. Klik "+ Add Process" untuk menambah tahap AHU (heating coil, cooling coil, humidifier, dsb).</div>'; return; }
+  c.innerHTML = processes.map((p,idx)=>{
+    const cfg = processConfig[p.type];
+    const targetOpts = cfg.targets.map(t=>`<option value="${t[0]}" ${t[0]===p.target?'selected':''}>${t[1]}</option>`).join('');
+    const unit = cfg.targets.find(t=>t[0]===p.target)[2];
+    return `
+    <div class="process-block">
+      <div class="process-head">
+        <span>Process ${idx} &rarr; ${idx+1}</span>
+        <button onclick="removeProcess(${p.id})" title="Hapus">&times;</button>
+      </div>
+      <div class="process-body">
+        <div class="row">
+          <div class="field">
+            <label>Action</label>
+            <select onchange="updateProcess(${p.id},'type',this.value)">
+              ${Object.entries(processConfig).map(([k,v])=>`<option value="${k}" ${k===p.type?'selected':''}>${v.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>Target</label>
+            <select onchange="updateProcess(${p.id},'target',this.value)">${targetOpts}</select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Value</label>
+          <input type="number" step="0.1" value="${p.value}" onchange="updateProcess(${p.id},'value',parseFloat(this.value))">
+          <div class="unit">${unit}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function updateProcess(id, key, value){
+  const p = processes.find(x=>x.id===id);
+  if(!p) return;
+  p[key]=value;
+  if(key==='type'){ p.target = processConfig[value].targets[0][0]; }
+  renderProcesses();
+  recalcAll();
+}
+
+/* ===================== MAIN RECALC + RENDER ===================== */
+['altitude','airflow','in1val','in2val'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', recalcAll);
+});
+
+let currentPoints=[];
+let currentP=101325;
+
+function recalcAll(){
+  const z = parseFloat(document.getElementById('altitude').value)||0;
+  const flowRaw = parseFloat(document.getElementById('airflow').value)||0;
+  const flowUnit = document.getElementById('airflowUnit').value;
+  const flow = airflowToM3h(flowRaw, flowUnit);
+  const type1 = document.getElementById('in1type').value;
+  const val1 = parseFloat(document.getElementById('in1val').value);
+  const type2 = document.getElementById('in2type').value;
+  const val2 = parseFloat(document.getElementById('in2val').value);
+
+  const P = pressureAtAltitude(z);
+  currentP = P;
+  let p0 = solveTwoParams(type1, val1, type2, val2, P);
+  p0.airflow = flow;
+  p0.v_ = p0.v;
+  p0.dryMass = flow / p0.v;
+
+  const pts = [p0];
+  processes.forEach(proc=>{
+    const prev = pts[pts.length-1];
+    const next = applyProcess(prev, proc);
+    next.dryMass = prev.dryMass; // dry air mass flow constant through sensible/latent processes (no mixing)
+    next.airflow = next.dryMass * next.v;
+    pts.push(next);
+  });
+  currentPoints = pts;
+
+  renderPointTable(pts);
+  renderProcessTable(pts);
+  drawChart(pts, P, z);
+  document.getElementById('chartMeta').innerHTML =
+    `Psychrometric Chart &middot; Metric Units &middot; ${P.toFixed(2)} Pa &middot; ${z} meters above Sea-level`;
+}
+
+function fmt(n,d=1){ return isFinite(n) ? n.toFixed(d) : '-'; }
+
+function renderPointTable(pts){
+  let html = '<tr><th>Point</th><th>Tdb [°C]</th><th>Twb [°C]</th><th>Tdew [°C]</th><th>W [g/kgda]</th><th>H [kJ/kgda]</th>'+
+             '<th>RH [%]</th><th>Pv [Pa]</th><th>&rho; [kg/m&sup3;]</th><th>v [m&sup3;/kgda]</th><th>Air Flow [m&sup3;/h]</th><th>Dry Air Mass Flow [kg/h]</th></tr>';
+  pts.forEach((p,i)=>{
+    html += `<tr><td>${i}</td><td>${fmt(p.Tdb)}</td><td>${fmt(p.Twb)}</td><td>${fmt(p.Tdew)}</td><td>${fmt(p.W*1000)}</td><td>${fmt(p.H)}</td>`+
+            `<td>${fmt(p.RH)}</td><td>${fmt(p.Pv,0)}</td><td>${fmt(p.rho,3)}</td><td>${fmt(p.v,3)}</td><td>${fmt(p.airflow,0)}</td><td>${fmt(p.dryMass,0)}</td></tr>`;
+  });
+  document.getElementById('pointTable').innerHTML = html;
+}
+
+function renderProcessTable(pts){
+  let html = '<tr><th>Process</th><th>Action</th><th>ΔT [°C]</th><th>ΔW [g/kgda]</th><th>ΔH [kJ/kgda]</th>'+
+             '<th>ΔMoisture [l/h]</th><th>Power ΔH [kW Total]</th><th>Power ΔT [kW Sensible]</th></tr>';
+  for(let i=1;i<pts.length;i++){
+    const a=pts[i-1], b=pts[i];
+    const dT=b.Tdb-a.Tdb, dW=(b.W-a.W)*1000, dH=b.H-a.H;
+    const dMoist = a.dryMass * (b.W-a.W); // kg/h ~ l/h
+    const powerTotal = a.dryMass*dH/3600;
+    const powerSens = a.dryMass*1.006*dT/3600;
+    const action = processConfig[processes[i-1].type].label.split(' ')[0];
+    html += `<tr><td>${i-1}-${i}</td><td>${action}</td><td>${fmt(dT)}</td><td>${fmt(dW)}</td><td>${fmt(dH,2)}</td>`+
+            `<td>${fmt(dMoist,2)}</td><td>${fmt(powerTotal,2)}</td><td>${fmt(powerSens,2)}</td></tr>`;
+  }
+  document.getElementById('processTable').innerHTML = html || '<tr><td colspan="8" style="text-align:center;color:#8b95a1;">Belum ada proses</td></tr>';
+}
+
+/* ===================== CHART ===================== */
+const svgNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs){ const e=document.createElementNS(svgNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+function drawChart(pts, P, z){
+  const svg = document.getElementById('chart');
+  svg.innerHTML = '';
+  const W_=900,H_=620, mL=60,mR=30,mT=20,mB=50;
+  const cw=W_-mL-mR, ch=H_-mT-mB;
+  const Tmin=-15, Tmax=45;
+  let Wmax = Math.max(20, wsat(Tmax,P)*1000*1.08);
+  Wmax = Math.min(Wmax, 45);
+  const Wmin=0;
+
+  function X(t){ return mL + (t-Tmin)/(Tmax-Tmin)*cw; }
+  function Y(w){ return mT + ch - (w-Wmin)/(Wmax-Wmin)*ch; }
+
+  // background
+  svg.appendChild(el('rect',{x:0,y:0,width:W_,height:H_,fill:'#ffffff'}));
+
+  // gridlines (vertical - temperature)
+  for(let t=Tmin; t<=Tmax; t+=5){
+    svg.appendChild(el('line',{x1:X(t),y1:mT,x2:X(t),y2:mT+ch,stroke:'#e7e9ec','stroke-width':1}));
+    const lbl=el('text',{x:X(t),y:mT+ch+18,'font-size':10,'text-anchor':'middle',fill:'#5b6672'}); lbl.textContent=t; svg.appendChild(lbl);
+  }
+  const xaxisLbl=el('text',{x:mL+cw/2,y:H_-8,'font-size':11,'text-anchor':'middle',fill:'#374151','font-weight':600}); xaxisLbl.textContent='DRY BULB TEMPERATURE, °C (Tdb)'; svg.appendChild(xaxisLbl);
+
+  // gridlines (horizontal - humidity ratio)
+  const wStep = Wmax>30?5:2;
+  for(let w=0; w<=Wmax; w+=wStep){
+    svg.appendChild(el('line',{x1:mL,y1:Y(w),x2:mL+cw,y2:Y(w),stroke:'#e7e9ec','stroke-width':1}));
+    const lbl=el('text',{x:mL-8,y:Y(w)+3,'font-size':10,'text-anchor':'end',fill:'#5b6672'}); lbl.textContent=w; svg.appendChild(lbl);
+  }
+  const yaxisLbl=el('text',{x:16,y:mT+ch/2,'font-size':10.5,'text-anchor':'middle',fill:'#374151','font-weight':600, transform:`rotate(-90 16 ${mT+ch/2})`}); yaxisLbl.textContent='HUMIDITY RATIO, g/kg dry air'; svg.appendChild(yaxisLbl);
+
+  // enthalpy lines (constant H)
+  for(let h=0; h<=140; h+=10){
+    let d='';
+    for(let t=Tmin; t<=Tmax; t+=1){
+      const w = (h - 1.006*t)/(2501+1.86*t) * 1000;
+      if(w<Wmin-2 || w>Wmax+2) continue;
+      d += (d===''?'M':'L') + X(t).toFixed(1) + ',' + Y(w).toFixed(1) + ' ';
+    }
+    if(d) svg.appendChild(el('path',{d, fill:'none', stroke:'#e3c9c9','stroke-width':0.8}));
+  }
+
+  // RH lines
+  [10,20,30,40,50,60,70,80,90].forEach(rh=>{
+    let d='';
+    for(let t=Tmin; t<=Tmax; t+=1){
+      const w = wFromRH(t,rh,P)*1000;
+      if(w>Wmax+1) break;
+      d += (d===''?'M':'L') + X(t).toFixed(1) + ',' + Y(w).toFixed(1) + ' ';
+    }
+    if(d){
+      svg.appendChild(el('path',{d, fill:'none', stroke:'#9aa3ad','stroke-width':0.9}));
+    }
+  });
+
+  // saturation curve (RH 100)
+  let dsat='';
+  for(let t=Tmin; t<=Tmax; t+=0.5){
+    const w = wsat(t,P)*1000;
+    if(w>Wmax+2) break;
+    dsat += (dsat===''?'M':'L') + X(t).toFixed(1) + ',' + Y(w).toFixed(1) + ' ';
+  }
+  svg.appendChild(el('path',{d:dsat, fill:'none', stroke:'#10233d','stroke-width':2}));
+
+  // process path + points
+  if(pts.length>0){
+    let path='';
+    pts.forEach((p,i)=>{
+      const x=X(p.Tdb), y=Y(p.W*1000);
+      path += (i===0?'M':'L') + x.toFixed(1)+','+y.toFixed(1)+' ';
+    });
+    svg.appendChild(el('path',{d:path, fill:'none', stroke:'#c23b4d','stroke-width':2.5}));
+    pts.forEach((p,i)=>{
+      const x=X(p.Tdb), y=Y(p.W*1000);
+      const circle = el('circle',{cx:x,cy:y,r:6,fill:'#fff',stroke:'#c23b4d','stroke-width':2.5,style:'cursor:pointer;'});
+      circle.addEventListener('mouseenter', ()=>showPointTooltip(svg,p,i,x,y,cw));
+      circle.addEventListener('mouseleave', ()=>hidePointTooltip(svg));
+      circle.addEventListener('click', (ev)=>{ ev.stopPropagation(); showPointTooltip(svg,p,i,x,y,cw); });
+      svg.appendChild(circle);
+      const lbl=el('text',{x:x+8,y:y-9,'font-size':12,'font-weight':700,fill:'#c23b4d',style:'pointer-events:none;'}); lbl.textContent=i; svg.appendChild(lbl);
+    });
+    svg.addEventListener('click', ()=>hidePointTooltip(svg));
+  }
+
+  // clip chart border
+  svg.appendChild(el('rect',{x:mL,y:mT,width:cw,height:ch,fill:'none',stroke:'#10233d','stroke-width':1.2}));
+}
+
+function hidePointTooltip(svg){
+  const old = svg.querySelector('#chartTooltip');
+  if(old) old.remove();
+}
+function showPointTooltip(svg,p,i,x,y,cw){
+  hidePointTooltip(svg);
+  const boxW=132, boxH=92;
+  let fx = x+10; if(fx+boxW>cw+60) fx = x-boxW-10;
+  let fy = y-boxH-8; if(fy<0) fy = y+12;
+  const fo = el('foreignObject',{x:fx,y:fy,width:boxW,height:boxH,id:'chartTooltip'});
+  const div = document.createElement('div');
+  div.style.cssText='background:#f4f5f7;border:1px solid #9aa3ad;border-radius:3px;padding:6px 9px;font-family:"IBM Plex Sans",Arial,sans-serif;font-size:11.5px;color:#10233d;box-shadow:0 2px 8px rgba(0,0,0,.18);line-height:1.55;';
+  div.innerHTML = `<b>Point: ${i}</b><br>T: ${fmt(p.Tdb)} &deg;C<br>X: ${fmt(p.W*1000)} g/kg<br>H: ${fmt(p.H)} kJ/kg<br>RH: ${fmt(p.RH)} %`;
+  fo.appendChild(div);
+  svg.appendChild(fo);
+}
+
+/* ===================== INIT ===================== */
+refreshTypeSelects();
+renderProcesses();
+recalcAll();
+addProcess();
+</script>
+</body>
+</html>
