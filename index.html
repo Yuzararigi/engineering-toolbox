@@ -1,15 +1,398 @@
-<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Engineering Toolbox</title><style>
-:root{--ink:#10233d;--ink2:#1c3a5e;--paper:#f6f7f9;--panel:#fff;--line:#d9dee5;--accent:#0e7c66;--muted:#64748b}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,"Segoe UI",Arial,sans-serif}header{background:var(--ink);color:white;padding:20px 24px;border-bottom:4px solid var(--accent)}.wrap{max-width:1180px;margin:auto}.brand{font-size:22px;font-weight:800}.brand span{color:#8fb8ff}.sub{margin-top:5px;color:#b8c5d6;font-size:13px}.hero{padding:52px 0 28px}.hero h1{font-size:38px;max-width:750px;margin:0 0 12px}.hero p{max-width:760px;color:var(--muted);line-height:1.6}.section-title{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700;margin:25px 0 12px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;min-height:180px;display:flex;flex-direction:column}.card h2{font-size:18px;margin:10px 0 8px}.card p{color:var(--muted);font-size:14px;line-height:1.5;flex:1}.tag{font:12px ui-monospace,monospace;color:var(--accent);font-weight:700}.btn{display:inline-block;text-decoration:none;background:var(--ink2);color:white;padding:9px 13px;border-radius:6px;font-weight:700;font-size:13px}.soon{background:#eef1f5;color:#8a94a3;cursor:not-allowed}.foot{padding:40px 0;color:#8490a0;font-size:12px}@media(max-width:800px){.wrap{padding:0 16px}.grid{grid-template-columns:1fr}.hero h1{font-size:30px}}
-</style></head><body><header><div class="wrap"><div class="brand">Engineering<span>Toolbox</span></div><div class="sub">Engineering calculation tools for HVAC, Cleanroom & Pharmaceutical Facilities</div></div></header><main class="wrap"><section class="hero"><div class="tag">ENGINEERING TOOLBOX · v0.1</div><h1>Perhitungan engineering yang cepat, transparan, dan mudah diverifikasi.</h1><p>Portal modular untuk kalkulator yang dipakai dalam pekerjaan engineering. Setiap tool dikembangkan dengan fokus pada basis perhitungan, asumsi, satuan, dan traceability.</p></section><div class="section-title">HVAC & Cleanroom</div><section class="grid"><article class="card"><div class="tag">AVAILABLE · v0.1</div><h2>Psychrometric Calculator</h2><p>Diagram psikrometrik dan kalkulasi proses heating, cooling, humidification, dan dehumidification dengan perubahan kondisi udara.</p><a class="btn" href="psychrochart.html">Open Tool →</a></article><article class="card"><div class="tag">PLANNED</div><h2>Room Pressure Calculator</h2><p>Estimasi airflow offset, leakage, dan differential pressure untuk ruang bersih.</p><span class="btn soon">Coming soon</span></article><article class="card"><div class="tag">PLANNED</div><h2>Airflow / ACH Calculator</h2><p>Konversi airflow, ACH, room volume, velocity, dan kebutuhan supply/return/exhaust.</p><span class="btn soon">Coming soon</span></article><article class="card"><div class="tag">PLANNED</div><h2>Cooling Load</h2><p>Perhitungan sensible, latent, dan total cooling load untuk analisis awal sistem HVAC.</p><span class="btn soon">Coming soon</span></article><article class="card"><div class="tag">PLANNED</div><h2>HEPA / LAFU Calculator</h2><p>Airflow, face velocity, filter area, dan parameter awal evaluasi HEPA/LAFU.</p><span class="btn soon">Coming soon</span></article><article class="card"><div class="tag">PLANNED</div><h2>Engineering Utilities</h2><p>Unit converter dan kalkulator praktis untuk pressure, airflow, thermal, dan utilities.</p><span class="btn soon">Coming soon</span></article></section><div class="foot">Engineering Toolbox · Prototype v0.1 · Calculation results must be verified against applicable design basis, standards, and equipment data.</div></main>
-<!-- Cloudflare Web Analytics -->
-<script type='module'
-        src='https://static.cloudflareinsights.com/beacon.min.js'
-        data-cf-beacon='{"token": "882681c0fdb64411b57940cbcfceda3e"}'>
-</script>
-<!-- End Cloudflare Web Analytics -->
+<!doctype html>
+
+<html lang="id">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Engineering Toolbox</title>
+
+  <style>
+    :root {
+      --ink: #10233d;
+      --ink2: #1c3a5e;
+      --paper: #f6f7f9;
+      --panel: #ffffff;
+      --line: #d9dee5;
+      --accent: #0e7c66;
+      --muted: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+    }
+
+    header {
+      background: var(--ink);
+      color: white;
+      padding: 20px 24px;
+      border-bottom: 4px solid var(--accent);
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: auto;
+    }
+
+    .brand {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .brand span {
+      color: #8fb8ff;
+    }
+
+    .sub {
+      margin-top: 5px;
+      color: #b8c5d6;
+      font-size: 13px;
+    }
+
+    .hero {
+      padding: 52px 0 28px;
+    }
+
+    .hero h1 {
+      font-size: 38px;
+      max-width: 750px;
+      margin: 0 0 12px;
+    }
+
+    .hero p {
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .section-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-weight: 700;
+      margin: 25px 0 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card h2 {
+      font-size: 18px;
+      margin: 10px 0 8px;
+    }
+
+    .card p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    .tag {
+      font: 12px ui-monospace, monospace;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .btn {
+      display: inline-block;
+      text-decoration: none;
+      background: var(--ink2);
+      color: white;
+      padding: 9px 13px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .btn:hover {
+      background: var(--ink);
+    }
+
+    .soon {
+      background: #eef1f5;
+      color: #8a94a3;
+      cursor: not-allowed;
+    }
+
+    .foot {
+      padding: 40px 0;
+      color: #8490a0;
+      font-size: 12px;
+    }
+
+    @media (max-width: 800px) {
+      .wrap {
+        padding: 0 16px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h1 {
+        font-size: 30px;
+      }
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <header>
+    <div class="wrap">
+
+```
+  <div class="brand">
+    Engineering<span>Toolbox</span>
+  </div>
+
+  <div class="sub">
+    Engineering calculation tools for HVAC, Cleanroom & Pharmaceutical Facilities
+  </div>
+
+</div>
+```
+
+  </header>
+
+  <main class="wrap">
+
+```
+<!-- HERO -->
+<section class="hero">
+
+  <div class="tag">
+    ENGINEERING TOOLBOX · v0.2
+  </div>
+
+  <h1>
+    Perhitungan engineering yang cepat, transparan, dan mudah diverifikasi.
+  </h1>
+
+  <p>
+    Portal modular untuk kalkulator yang dipakai dalam pekerjaan engineering.
+    Setiap tool dikembangkan dengan fokus pada basis perhitungan, asumsi,
+    satuan, dan traceability.
+  </p>
+
+</section>
+
+
+<!-- HVAC & CLEANROOM -->
+<div class="section-title">
+  HVAC & Cleanroom
+</div>
+
+<section class="grid">
+
+  <!-- PSYCHROMETRIC -->
+  <article class="card">
+
+    <div class="tag">
+      AVAILABLE · v0.1
+    </div>
+
+    <h2>
+      Psychrometric Calculator
+    </h2>
+
+    <p>
+      Diagram psikrometrik dan kalkulasi proses heating, cooling,
+      humidification, dan dehumidification dengan perubahan kondisi udara.
+    </p>
+
+    <a class="btn" href="psychrochart.html">
+      Open Tool →
+    </a>
+
+  </article>
+
+
+  <!-- DUCT CALCULATOR -->
+  <article class="card">
+
+    <div class="tag">
+      AVAILABLE · v0.1
+    </div>
+
+    <h2>
+      Duct Sizing & Pressure Loss
+    </h2>
+
+    <p>
+      Rekomendasi ukuran duct, velocity, hydraulic diameter,
+      friction rate, fitting loss, total pressure loss,
+      dan estimasi kebutuhan fan pressure.
+    </p>
+
+    <a class="btn" href="duct-calculator.html">
+      Open Tool →
+    </a>
+
+  </article>
+
+
+  <!-- ROOM PRESSURE -->
+  <article class="card">
+
+    <div class="tag">
+      PLANNED
+    </div>
+
+    <h2>
+      Room Pressure Calculator
+    </h2>
+
+    <p>
+      Estimasi airflow offset, leakage, dan differential pressure
+      untuk ruang bersih.
+    </p>
+
+    <span class="btn soon">
+      Coming soon
+    </span>
+
+  </article>
+
+
+  <!-- AIRFLOW ACH -->
+  <article class="card">
+
+    <div class="tag">
+      PLANNED
+    </div>
+
+    <h2>
+      Airflow / ACH Calculator
+    </h2>
+
+    <p>
+      Konversi airflow, ACH, room volume, velocity,
+      dan kebutuhan supply/return/exhaust.
+    </p>
+
+    <span class="btn soon">
+      Coming soon
+    </span>
+
+  </article>
+
+
+  <!-- COOLING LOAD -->
+  <article class="card">
+
+    <div class="tag">
+      PLANNED
+    </div>
+
+    <h2>
+      Cooling Load
+    </h2>
+
+    <p>
+      Perhitungan sensible, latent, dan total cooling load
+      untuk analisis awal sistem HVAC.
+    </p>
+
+    <span class="btn soon">
+      Coming soon
+    </span>
+
+  </article>
+
+
+  <!-- HEPA / LAFU -->
+  <article class="card">
+
+    <div class="tag">
+      PLANNED
+    </div>
+
+    <h2>
+      HEPA / LAFU Calculator
+    </h2>
+
+    <p>
+      Airflow, face velocity, filter area,
+      dan parameter awal evaluasi HEPA/LAFU.
+    </p>
+
+    <span class="btn soon">
+      Coming soon
+    </span>
+
+  </article>
+
+
+  <!-- UTILITIES -->
+  <article class="card">
+
+    <div class="tag">
+      PLANNED
+    </div>
+
+    <h2>
+      Engineering Utilities
+    </h2>
+
+    <p>
+      Unit converter dan kalkulator praktis untuk pressure,
+      airflow, thermal, dan engineering utilities.
+    </p>
+
+    <span class="btn soon">
+      Coming soon
+    </span>
+
+  </article>
+
+</section>
+
+
+<!-- FOOTER -->
+<div class="foot">
+  Engineering Toolbox · Prototype v0.2 ·
+  Calculation results must be verified against applicable
+  design basis, standards, and equipment data.
+</div>
+```
+
+  </main>
+
+  <!-- Cloudflare Web Analytics -->
+
+  <script
+    type="module"
+    src="https://static.cloudflareinsights.com/beacon.min.js"
+    data-cf-beacon='{"token":"882681c0fdb64411b57940cbcfceda3e"}'>
+  </script>
+
+  <!-- End Cloudflare Web Analytics -->
 
 </body>
-</html>
-</body>
-</html>
 
+</html>
