@@ -297,67 +297,70 @@ function airflowToM3h(val,unit){
   switch(unit){ case 'm3h': return val; case 'm3s': return val*3600; case 'ls': return val*3.6; case 'cfm': return val*1.699010796; }
 }
 
-function applyProcess(p, proc){
-  const P = p.P;
-  let Tdb2, W2;
-  switch(proc.type){
-    case 'heat':
-    case 'cool': {
-      Tdb2 = (proc.target==='temp') ? proc.value : p.Tdb + proc.value;
-      W2 = p.W;
-      const Ws2 = wsat(Tdb2,P);
-      if(W2 > Ws2) W2 = Ws2; // condensation cap -> saturated at Tdb2
-      break;
+function solveTFromH(H,W){ return (H-2501*W)/(1.006+1.86*W); }
+function num(proc,key,fallback=0){ const n=parseFloat(proc[key]); return Number.isFinite(n)?n:fallback; }
+function applyProcess(p,proc){
+  const P=p.P; let T=p.Tdb,W=p.W;
+  if(proc.type==='heat' || proc.type==='cool'){
+    const sign=proc.type==='heat'?1:-1;
+    if(proc.target==='temp'||proc.target==='coiltemp'||proc.target==='transport') T=proc.value;
+    else if(proc.target==='dT') T=p.Tdb+sign*Math.abs(proc.value);
+    else if(proc.target==='dH') T=solveTFromH(p.H+sign*Math.abs(proc.value),W);
+    else if(proc.target==='power') T=solveTFromH(p.H+sign*Math.abs(proc.value)*3600/Math.max(p.dryMass,1e-9),W);
+    if(proc.type==='cool'){
+      const eff=Math.max(0,Math.min(100,num(proc,'efficacy',80)))/100;
+      const target=T, adp=Math.min(target,p.Tdew);
+      T=p.Tdb+eff*(target-p.Tdb);
+      W=p.W+eff*(Math.min(p.W,wsat(adp,P))-p.W);
     }
-    case 'humidify_steam': {
-      Tdb2 = p.Tdb;
-      if(proc.target==='rh') W2 = wFromRH(Tdb2, proc.value, P);
-      else if(proc.target==='w') W2 = proc.value/1000;
-      else W2 = p.W + proc.value/1000; // dW
-      break;
+  } else if(proc.type==='mix'){
+    const q1=p.airflow*Math.max(0,Math.min(100,num(proc,'existingPct',100)))/100;
+    const q2=Math.max(0,num(proc,'additionalFlow',500));
+    const t2=num(proc,'mixTemp',10), rh2=num(proc,'mixRH',50);
+    const p2=computePoint(t2,wFromRH(t2,rh2,P),P);
+    const m1=q1/Math.max(p.v,1e-9),m2=q2/Math.max(p2.v,1e-9),mt=m1+m2;
+    W=(m1*p.W+m2*p2.W)/Math.max(mt,1e-9);
+    T=solveTFromH((m1*p.H+m2*p2.H)/Math.max(mt,1e-9),W);
+    const out=computePoint(T,W,P); out.dryMass=mt; out.airflow=mt*out.v; return out;
+  } else if(proc.type==='heat_recovery'){
+    const t2=num(proc,'counterTemp',20),rh2=num(proc,'counterRH',50);
+    const te=Math.max(0,Math.min(100,num(proc,'thermalEff',80)))/100;
+    const me=Math.max(0,Math.min(100,num(proc,'moistureEff',80)))/100;
+    const bal=Math.max(.5,Math.min(1,num(proc,'balance',100)/100));
+    T=p.Tdb+te*bal*(t2-p.Tdb); W=p.W+me*bal*(wFromRH(t2,rh2,P)-p.W);
+  } else if(proc.type==='humidify'){
+    const adiabatic=proc.target.startsWith('adiabatic');
+    if(proc.target.endsWith('rh')){
+      if(adiabatic){
+        let lo=p.Twb,hi=p.Tdb;
+        for(let i=0;i<60;i++){ const mid=(lo+hi)/2,w=solveWforTwb(mid,p.Twb,P); if(rhFromW(mid,w,P)<proc.value) hi=mid; else lo=mid; }
+        T=(lo+hi)/2; W=solveWforTwb(T,p.Twb,P);
+      } else W=wFromRH(T,proc.value,P);
+    } else {
+      const add=proc.target.endsWith('water')?proc.value/Math.max(p.dryMass,1e-9):proc.value/1000;
+      W=p.W+add; if(adiabatic) T=solveTFromH(p.H,W);
     }
-    case 'dehumidify': {
-      Tdb2 = p.Tdb;
-      if(proc.target==='rh') W2 = wFromRH(Tdb2, proc.value, P);
-      else W2 = proc.value/1000;
-      break;
-    }
-    case 'humidify_adiabatic': {
-      if(proc.target==='temp'){
-        Tdb2 = proc.value;
-        W2 = solveWforTwb(Tdb2, p.Twb, P);
-      } else { // target rh
-        let lo=p.Twb, hi=p.Tdb;
-        for(let i=0;i<50;i++){
-          const mid=(lo+hi)/2;
-          const wmid=solveWforTwb(mid,p.Twb,P);
-          const rhmid=rhFromW(mid,wmid,P);
-          if(rhmid < proc.value) hi=mid; else lo=mid;
-        }
-        Tdb2=(lo+hi)/2;
-        W2=solveWforTwb(Tdb2,p.Twb,P);
-      }
-      break;
-    }
-    default: Tdb2=p.Tdb; W2=p.W;
+  } else if(proc.type==='custom'){
+    T=num(proc,'customTemp',10); W=wFromRH(T,num(proc,'customRH',50),P);
   }
-  return computePoint(Tdb2,W2,P);
+  W=Math.max(0,Math.min(W,wsat(T,P)));
+  return computePoint(T,W,P);
 }
 
 /* ===================== STATE ===================== */
 let processes = []; // {id,type,target,value}
 let pidCounter=0;
 
-const processConfig = {
-  heat:              {label:'Heat',                targets:[['temp','to Temp.','°C'],['dT','by ΔT','°C']]},
-  cool:              {label:'Cool',                targets:[['temp','to Temp.','°C'],['dT','by ΔT (negatif)','°C']]},
-  humidify_steam:    {label:'Humidify (Steam, isothermal)', targets:[['rh','to RH','%RH'],['w','to Humidity Ratio','g/kg'],['dW','by ΔW','g/kg']]},
-  humidify_adiabatic:{label:'Humidify (Adiabatic/Evaporative)', targets:[['rh','to RH','%RH'],['temp','to Temp.','°C']]},
-  dehumidify:        {label:'Dehumidify (isothermal)', targets:[['rh','to RH','%RH'],['w','to Humidity Ratio','g/kg']]}
+const processConfig={
+  heat:{label:'Heat',targets:[['power','Power','kW'],['dT','ΔT','°C'],['dH','ΔH','kJ/kg'],['temp','to Temp.','°C'],['coiltemp','Coil Temp.','°C'],['transport','Transport Medium','°C']]},
+  cool:{label:'Cool',targets:[['power','Power','kW'],['dT','ΔT','°C'],['dH','ΔH','kJ/kg'],['temp','to Temp.','°C'],['coiltemp','Coil Temp.','°C'],['transport','Transport Medium','°C']]},
+  mix:{label:'Mix',targets:[]}, heat_recovery:{label:'Heat Recovery',targets:[]},
+  humidify:{label:'Humidify',targets:[['adiabatic_rh','Adiabatic to %RH','%RH'],['adiabatic_dw','Adiabatic ΔW','g/kg'],['adiabatic_water','Adiabatic Water Flow','kg/h'],['isothermal_rh','Isothermal to %RH','%RH'],['isothermal_dw','Isothermal ΔW','g/kg'],['isothermal_water','Isothermal Water Flow','kg/h']]},
+  custom:{label:'Custom Point',targets:[]}
 };
 
 function addProcess(){
-  processes.push({id:pidCounter++, type:'heat', target:'temp', value: 25});
+  processes.push({id:pidCounter++,type:'heat',target:'temp',value:25,efficacy:80,existingPct:100,additionalFlow:500,mixTemp:10,mixRH:50,thermalEff:80,moistureEff:80,counterTemp:20,counterRH:50,balance:100,customTemp:10,customRH:50});
   renderProcesses();
   recalcAll();
 }
@@ -372,7 +375,14 @@ function renderProcesses(){
   c.innerHTML = processes.map((p,idx)=>{
     const cfg = processConfig[p.type];
     const targetOpts = cfg.targets.map(t=>`<option value="${t[0]}" ${t[0]===p.target?'selected':''}>${t[1]}</option>`).join('');
-    const unit = cfg.targets.find(t=>t[0]===p.target)[2];
+    const selected=cfg.targets.find(t=>t[0]===p.target);
+    const unit=selected?selected[2]:'';
+    const input=(key,label,unit2,value=p[key])=>`<div class="field"><label>${label}</label><input type="number" step="0.1" value="${value}" onchange="updateProcess(${p.id},'${key}',parseFloat(this.value))"><div class="unit">${unit2}</div></div>`;
+    let details='';
+    if(p.type==='mix') details=`<div class="row">${input('existingPct','Existing Airflow','%')}${input('additionalFlow','Additional Airflow','m³/h')}</div><div class="row">${input('mixTemp','Additional Air Temperature','°C')}${input('mixRH','Additional Air Humidity','%RH')}</div>`;
+    else if(p.type==='heat_recovery') details=`<div class="row">${input('thermalEff','Thermal Efficiency','%')}${input('counterTemp','Counter-flow Temperature','°C')}</div><div class="row">${input('moistureEff','Moisture Recovery','%')}${input('counterRH','Counter-flow Humidity','%RH')}</div>${input('balance','Counter-flow Balance','%')}`;
+    else if(p.type==='custom') details=`<div class="row">${input('customTemp','Temperature','°C')}${input('customRH','Relative Humidity','%RH')}</div>`;
+    else details=`<div class="row"><div class="field"><label>Calculation Method</label><select onchange="updateProcess(${p.id},'target',this.value)">${targetOpts}</select></div>${input('value','Value',unit,p.value)}</div>${p.type==='cool'?input('efficacy','Coil Efficacy','%',p.efficacy):''}`;
     return `
     <div class="process-block">
       <div class="process-head">
@@ -387,16 +397,9 @@ function renderProcesses(){
               ${Object.entries(processConfig).map(([k,v])=>`<option value="${k}" ${k===p.type?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
-          <div class="field">
-            <label>Target</label>
-            <select onchange="updateProcess(${p.id},'target',this.value)">${targetOpts}</select>
-          </div>
+          <div class="field"><label>Description</label><input type="text" value="${p.description||''}" placeholder="Write description" onchange="updateProcess(${p.id},'description',this.value)"></div>
         </div>
-        <div class="field">
-          <label>Value</label>
-          <input type="number" step="0.1" value="${p.value}" onchange="updateProcess(${p.id},'value',parseFloat(this.value))">
-          <div class="unit">${unit}</div>
-        </div>
+        ${details}
       </div>
     </div>`;
   }).join('');
@@ -405,7 +408,10 @@ function updateProcess(id, key, value){
   const p = processes.find(x=>x.id===id);
   if(!p) return;
   p[key]=value;
-  if(key==='type'){ p.target = processConfig[value].targets[0][0]; }
+  if(key==='type'){
+    const targets=processConfig[value].targets;
+    p.target=targets.length?targets[0][0]:'';
+  }
   renderProcesses();
   recalcAll();
 }
@@ -439,8 +445,10 @@ function recalcAll(){
   processes.forEach(proc=>{
     const prev = pts[pts.length-1];
     const next = applyProcess(prev, proc);
-    next.dryMass = prev.dryMass; // dry air mass flow constant through sensible/latent processes (no mixing)
-    next.airflow = next.dryMass * next.v;
+    if(proc.type!=='mix'){
+      next.dryMass = prev.dryMass;
+      next.airflow = next.dryMass * next.v;
+    }
     pts.push(next);
   });
   currentPoints = pts;
@@ -603,7 +611,5 @@ addProcess();
 </script>
 <!-- End Cloudflare Web Analytics -->
 
-</body>
-</html>
 </body>
 </html>
